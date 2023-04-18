@@ -26,6 +26,7 @@
 # Example
 # include("myfile.jl")
 
+using LinearAlgebra
 
 """
     optimize(f, g, x0, n, prob)
@@ -41,6 +42,28 @@ Returns:
     - The location of the minimum
 """
 function optimize(f, g, x0, n, prob)
-    x_best = x0
-    return x_best
+    method = NaiveGradientDescent(f, g, 0.5)
+    x = x0
+    for _ in 1:floor(n/method.step_cost)
+        x = step(method, x)
+    end
+    x
 end
+
+
+struct NaiveGradientDescent
+    f::Function
+    g::Function
+    α::Real
+    step_cost::Int
+
+    function NaiveGradientDescent(f, g, α)
+        new(f, g, α, 2)
+    end
+end
+
+function step(m::NaiveGradientDescent, x)
+    g = m.g(x)
+    x - m.α * g / norm(g)
+end
+
