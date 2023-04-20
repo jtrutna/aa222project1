@@ -11,9 +11,7 @@
 # include("myfile.jl")
 
 using LinearAlgebra
-using Plots;
-gr()
-pythonplot()
+using Plots
 
 """
     optimize(f, g, x0, n, prob)
@@ -29,32 +27,15 @@ Returns:
     - The location of the minimum
 """
 function optimize(f, g, x0, n, prob)
-    method = NaiveGradientDescent(f, g, 0.5)
+    method = DecayingGradientDescent(f, g, 1.0, 0.75)
     steps = convert(Int, n/method.step_cost)
     x0 = reshape(x0, 1, length(x0)) # Getting some inconsistencies
     history = vcat(x0, zeros(eltype(x0), steps, length(x0)))
     for i in 1:steps
         history[i+1,:] = step(method, history[i,:])
     end
-    animate_history(f, g, history, "$prob.gif")
-    last(history)
-end
-
-
-struct NaiveGradientDescent
-    f::Function
-    g::Function
-    α::Real
-    step_cost::Int
-
-    function NaiveGradientDescent(f, g, α)
-        new(f, g, α, 2)
-    end
-end
-
-function step(m::NaiveGradientDescent, x)
-    g = m.g(x)
-    x - m.α * g / norm(g)
+    #animate_history(f, g, history, "$prob.gif")
+    history[end, :]
 end
 
 struct ConjugateGradientDescent
@@ -68,8 +49,8 @@ struct ConjugateGradientDescent
     end
 end
 
-function step(M::ConjugateGradientDescent)
-    x, f, g, α = M.x, M.f, M.g, M.α
+function step(M::ConjugateGradientDescent, x)
+    x, f, g, α = M.f, M.g, M.α
     β = max(0, dot(g′, g′ - g)/(g⋅g))
     d′ = -g′ + β*d
     
@@ -114,20 +95,17 @@ function animate_history(f, g, history, output_filename)
 
     # Create a contour plot of the function
     p = contourf(xrange, yrange, (x,y)->f([x,y]), title="f(x,y)", levels=100, c=:viridis)
-    contour!(xrange, yrange, (x,y)->f([x,y]), xlabel="x", ylabel="y", title="f(x,y)", levels=100, c=:white, lw=2)
 
-    draw_quiver(g, -2:0.5:2, -2.0:0.5:3.0, "quiver.png")
+    overlay_quiver(g, -2:0.2:2, -2.0:0.2:3.0, "quiver.png")
 
     # Create and save the animation as a gif
     anim = @animate for i in 1:size(history, 1)
         plot!(history[1:i,1], history[1:i,2], c=:red, lw=1.5, m=:circle, ms=5)
     end
     gif(anim, output_filename, fps=10)
-
-    draw_quiver(g, -2:0.1:2, -2.0:0.1:3.0, "quiver.png")
 end
 
-function draw_quiver(g::Function, xrange, yrange, output_filename)
+function overlay_quiver(g::Function, xrange, yrange, output_filename)
     # Evaluate the vector field at each point in the grid and prepare arguments for quiver function
     tmp = [[x, y, g([x,y])] for x in xrange, y in yrange]
     X = [p[1] for p in tmp]
@@ -136,12 +114,45 @@ function draw_quiver(g::Function, xrange, yrange, output_filename)
     V = [p[3][2] for p in tmp]
 
     # Normalize (and shrink) the vectors
-    magnitudes = 10*sqrt.(U.^2 .+ V.^2)
+    magnitudes = 5*sqrt.(U.^2 .+ V.^2)
     U_norm = U ./ magnitudes
     V_norm = V ./ magnitudes
 
     # Create the quiver plot with arrows at each (x,y) coordinate
     quiver!(X, Y, quiver=(U_norm, V_norm), scale=:identity, aspect_ratio=:equal, color=:white)
-    # Save the quiver plot to a file
-    #savefig(output_filename)
+end
+
+struct NaiveGradientDescent
+    f::Function
+    g::Function
+    α::Real
+    step_cost::Int
+
+    function NaiveGradientDescent(f, g, α)
+        new(f, g, α, 2)
+    end
+end
+
+function step(m::NaiveGradientDescent, x)
+    g = m.g(x)
+    x - m.α * g / norm(g)
+end
+
+
+mutable struct DecayingGradientDescent
+    f::Function
+    g::Function
+    α::Real
+    γ::Real
+    step_cost::Int
+
+    function DecayingGradientDescent(f, g, α, γ)
+        new(f, g, α, γ, 2)
+    end
+end
+
+function step(m::DecayingGradientDescent, x)
+    g = m.g(x)
+    m.α *= m.γ
+    x - (m.α / m.γ) * g / norm(g)
 end
