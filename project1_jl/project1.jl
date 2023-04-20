@@ -156,3 +156,23 @@ function step(m::DecayingGradientDescent, x)
     m.α *= m.γ
     x - (m.α / m.γ) * g / norm(g)
 end
+
+mutable struct SharedBudget available end
+struct BudgetViolation <: Exception end
+function make_budgeted(budget::SharedBudget, fx::Function, cost::Real)
+    function wrapped(args...)
+        @sync begin
+            if budget.available >= cost
+                budget.available -= cost
+            else
+                throw(BudgetViolation)
+            end
+        end
+        fx(args...)
+    end
+end
+
+budget = SharedBudget(20)
+f = make_budgeted(budget, f, 1)
+g = make_budgeted(budget, g, 2)
+
