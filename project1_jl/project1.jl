@@ -109,12 +109,39 @@ function animate_history(f, g, history, output_filename)
     xrange = mins[1]:(maxs[1] - mins[1])/100:maxs[1]
     yrange = mins[2]:(maxs[2] - mins[2])/100:maxs[2]
 
+    xrange = -2:0.1:2
+    yrange = -2.0:0.1:3.0
+
     # Create a contour plot of the function
-    p = contour(xrange, yrange, (x,y)->f([x,y]), xlabel="x", ylabel="y", title="f(x,y)", levels=50)
+    p = contourf(xrange, yrange, (x,y)->f([x,y]), title="f(x,y)", levels=100, c=:viridis)
+    contour!(xrange, yrange, (x,y)->f([x,y]), xlabel="x", ylabel="y", title="f(x,y)", levels=100, c=:white, lw=2)
+
+    draw_quiver(g, -2:0.5:2, -2.0:0.5:3.0, "quiver.png")
 
     # Create and save the animation as a gif
     anim = @animate for i in 1:size(history, 1)
         plot!(history[1:i,1], history[1:i,2], c=:red, lw=1.5, m=:circle, ms=5)
     end
     gif(anim, output_filename, fps=10)
+
+    draw_quiver(g, -2:0.1:2, -2.0:0.1:3.0, "quiver.png")
+end
+
+function draw_quiver(g::Function, xrange, yrange, output_filename)
+    # Evaluate the vector field at each point in the grid and prepare arguments for quiver function
+    tmp = [[x, y, g([x,y])] for x in xrange, y in yrange]
+    X = [p[1] for p in tmp]
+    Y = [p[2] for p in tmp]
+    U = [p[3][1] for p in tmp]
+    V = [p[3][2] for p in tmp]
+
+    # Normalize (and shrink) the vectors
+    magnitudes = 10*sqrt.(U.^2 .+ V.^2)
+    U_norm = U ./ magnitudes
+    V_norm = V ./ magnitudes
+
+    # Create the quiver plot with arrows at each (x,y) coordinate
+    quiver!(X, Y, quiver=(U_norm, V_norm), scale=:identity, aspect_ratio=:equal, color=:white)
+    # Save the quiver plot to a file
+    #savefig(output_filename)
 end
