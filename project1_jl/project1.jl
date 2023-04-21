@@ -11,7 +11,6 @@
 # include("myfile.jl")
 
 using LinearAlgebra
-using Plots
 
 """
     optimize(f, g, x0, n, prob)
@@ -27,6 +26,13 @@ Returns:
     - The location of the minimum
 """
 function optimize(f, g, x0, n, prob)
+    # XXX: Must keep signature since autograder calls into this even though we need optimization
+    #      history for writeup of assignment.
+    history = _optimize(f, g, x0, n)
+    history[end, :]
+end
+
+function _optimize(f, g, x0, n)
     method = DecayingGradientDescent(f, g, 1.0, 0.75)
     steps = convert(Int, n/method.step_cost)
     x0 = reshape(x0, 1, length(x0)) # Getting some inconsistencies
@@ -34,8 +40,7 @@ function optimize(f, g, x0, n, prob)
     for i in 1:steps
         history[i+1,:] = step(method, history[i,:])
     end
-    #animate_history(f, g, history, "$prob.gif")
-    history[end, :]
+    history
 end
 
 struct ConjugateGradientDescent
@@ -59,69 +64,6 @@ function step(M::ConjugateGradientDescent, x)
     return x
 end
 
-function graph(f, g, history, output_filename)
-    mins = map(minimum, eachcol(history))
-    maxs = map(maximum, eachcol(history))
-
-    # Define the range of values for the x and y axes
-    xrange = mins[1]:(maxs[1] - mins[1])/100:maxs[1]
-    yrange = mins[2]:(maxs[2] - mins[2])/100:maxs[2]
-
-    z = ((a,b)->f([a,b])).(xrange', yrange)
-
-    # Create a contour plot of the function
-    contour(xrange, yrange, z, xlabel="x", ylabel="y", title="f(x,y)")
-
-    plot!(history[:, 1], history[:, 2], color="red", label="history")
-
-    scatter!([point[1] for point in history], [point[2] for point in history], label="", markersize=3)
-    for (i, point) in enumerate(history)
-        annotate!(point[1], point[2], text(string(i), 8, :black))
-    end
-
-    savefig(output_filename)
-end
-
-function animate_history(f, g, history, output_filename)
-    mins = map(minimum, eachcol(history))
-    maxs = map(maximum, eachcol(history))
-
-    # Define the range of values for the x and y axes
-    xrange = mins[1]:(maxs[1] - mins[1])/100:maxs[1]
-    yrange = mins[2]:(maxs[2] - mins[2])/100:maxs[2]
-
-    xrange = -2:0.1:2
-    yrange = -2.0:0.1:3.0
-
-    # Create a contour plot of the function
-    p = contourf(xrange, yrange, (x,y)->f([x,y]), title="f(x,y)", levels=100, c=:viridis)
-
-    overlay_quiver(g, -2:0.2:2, -2.0:0.2:3.0, "quiver.png")
-
-    # Create and save the animation as a gif
-    anim = @animate for i in 1:size(history, 1)
-        plot!(history[1:i,1], history[1:i,2], c=:red, lw=1.5, m=:circle, ms=5)
-    end
-    gif(anim, output_filename, fps=10)
-end
-
-function overlay_quiver(g::Function, xrange, yrange, output_filename)
-    # Evaluate the vector field at each point in the grid and prepare arguments for quiver function
-    tmp = [[x, y, g([x,y])] for x in xrange, y in yrange]
-    X = [p[1] for p in tmp]
-    Y = [p[2] for p in tmp]
-    U = [p[3][1] for p in tmp]
-    V = [p[3][2] for p in tmp]
-
-    # Normalize (and shrink) the vectors
-    magnitudes = 5*sqrt.(U.^2 .+ V.^2)
-    U_norm = U ./ magnitudes
-    V_norm = V ./ magnitudes
-
-    # Create the quiver plot with arrows at each (x,y) coordinate
-    quiver!(X, Y, quiver=(U_norm, V_norm), scale=:identity, aspect_ratio=:equal, color=:white)
-end
-
 struct NaiveGradientDescent
     f::Function
     g::Function
@@ -137,7 +79,6 @@ function step(m::NaiveGradientDescent, x)
     g = m.g(x)
     x - m.α * g / norm(g)
 end
-
 
 mutable struct DecayingGradientDescent
     f::Function
@@ -171,8 +112,3 @@ function make_budgeted(budget::SharedBudget, fx::Function, cost::Real)
         fx(args...)
     end
 end
-
-budget = SharedBudget(20)
-f = make_budgeted(budget, f, 1)
-g = make_budgeted(budget, g, 2)
-

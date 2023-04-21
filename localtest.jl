@@ -20,8 +20,6 @@ if length(ARGS) == 0
     # Default
     K = 500
     probnames = sort(collect(keys(PROBS)))
-    #K = 1
-    #probnames = ["simple1"]
 elseif length(ARGS) == 1
     # One input argument can be either evaluation count or function name, so
     # have to test for both. If it's not an integer it's got to be a function name
