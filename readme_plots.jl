@@ -39,9 +39,9 @@ function animate_history(f, g, history, output_filename)
     yrange = -2.0:0.1:3.0
 
     # Create a contour plot of the function
-    p = contourf(xrange, yrange, (x,y)->f([x,y]), title="f(x,y)", levels=100, c=:viridis)
+    p = contour(xrange, yrange, (x,y)->f([x,y]), title="f(x,y)", levels=100, c=:viridis)
 
-    overlay_quiver(g, -2:1.0/5:2, -2.0:1.0/5:3.0, "quiver.png")
+    #overlay_quiver(g, -2:1.0/5:2, -2.0:1.0/5:3.0, "quiver.png")
 
     plot!(xlims=(-2, 2))
     plot!(ylims=(-2, 2))
@@ -75,10 +75,14 @@ function hw_readme_rosenbrack(f, g, x0, n, gif_filename)
     animate_history(f, g, history, gif_filename)
 end
 
-function hw_readme_convergence(f, g, x0, n, plot_filename)
-    history = _optimize(f, g, x0, n)
-    yvalues = [f([xy[1], xy[2]]) for xy in eachrow(history)]
-    plot(1:length(yvalues), yvalues, seriestype=:line, xlabel="Iteration", ylabel="Function Value", title="Convergence Plot", legend=false)
+function hw_readme_convergence(f, g, xs, n, plot_filename)
+    plot() # Clear out any existing
+    for x in xs
+        history = _optimize(f, g, x, n)
+        yvalues = [f([xy...]) for xy in eachrow(history)]
+        plot!(1:length(yvalues), yvalues, seriestype=:line, xlabel="Iteration", ylabel="Function Value", title="Convergence Plot", legend=false, c=:red)
+        plot!(1:length(yvalues), yvalues, seriestype=:scatter, xlabel="Iteration", ylabel="Function Value", title="Convergence Plot", legend=false, c=:red)
+    end
     savefig(plot_filename)
 end
 
@@ -88,4 +92,10 @@ hw_readme_rosenbrack(f, g, [1.5, -1.5], 20, "rosenbrock_2.gif")
 hw_readme_rosenbrack(f, g, [0.0, 0.0], 20, "rosenbrock_3.gif")
 
 f, g, x0, n = PROBS["simple1"]
-hw_readme_convergence(f, g, x0(), n, "convergence_rosenbrock.png")
+#hw_readme_convergence(f, g, [x0(), x0(), x0()], n, "convergence_rosenbrock.png")
+
+f, g, x0, n = PROBS["simple2"]
+#hw_readme_convergence(f, g, [x0(), x0(), x0()], n, "convergence_himmelbau.png")
+
+f, g, x0, n = PROBS["simple3"]
+#hw_readme_convergence(f, g, [x0(), x0(), x0()], n, "convergence_powell.png")

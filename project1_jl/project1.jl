@@ -28,8 +28,11 @@ Returns:
 function optimize(f, g, x0, n, prob)
     # XXX: Must keep signature since autograder calls into this even though we need optimization
     #      history for writeup of assignment.
-    history = _optimize(f, g, x0, n)
-    history[end, :]
+    #history = _optimize(f, g, x0, n)
+    #history[end, :]
+
+    method = NelderMead(f, length(x0))
+    optimize(method)
 end
 
 function _optimize(f, g, x0, n)
@@ -112,3 +115,62 @@ function make_budgeted(budget::SharedBudget, fx::Function, cost::Real)
         fx(args...)
     end
 end
+
+mutable struct NelderMead
+    f::Function
+    ϵ::Real
+    α::Real
+    β::Real
+    γ::Real
+    S::Vector{}
+    step_cost::Int
+
+    function NelderMead(f, dimensions)
+        tmp = Matrix{Float64}(I(dimensions))
+        S = [tmp[:, i] for i in 1:dimensions]
+        new(f, 0.1, 1.0, 2.0, 0.5, S, dimensions+2)
+    end
+end
+
+function optimize(m::NelderMead)
+    f, S, ϵ, α, β, γ = m.f, m.S, m.ϵ, m.α, m.β, m.γ
+    
+    Δ, y_arr = Inf, f.(S)
+    while Δ > ϵ
+        p = sortperm(y_arr)
+        S, y_arr = S[p], y_arr[p]
+        xl, yl = S[1], y_arr[1]
+        xh, yh = S[end], y_arr[end]
+        xs, ys = S[end-1], y_arr[end-1]
+        xm = mean(S[1:end-1])
+        xr = xm + α*(xm - xh)
+        yr = f(xr)
+
+        if yr < yl
+            xe = xm + β*(xr-xm)
+            ye = f(xe)
+            S[end], y_arr[end] = ye < yr ? (xe, ye) : (xr, yr)
+        elseif yr ≥ ys
+            if yr < yh
+                xh, yh, S[end], y_arr[end] = xr, yr, xr, yr
+            end
+            xc = xm + γ*(xh - xm)
+            yc = f(xc)
+            if yc > yh
+                for i in 2 : length(y_arr)
+                    S[i] = (S[i] + xl)/2
+                    y_arr[i] = f(S[i])
+                end
+            else
+                S[end], y_arr[end] = xc, yc
+            end
+        else
+            S[end], y_arr[end] = xr, yr
+        end
+
+        Δ = std(y_arr, corrected=false)
+    end
+    return S[argmin(y_arr)]
+end
+
+
